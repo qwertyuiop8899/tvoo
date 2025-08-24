@@ -158,7 +158,11 @@ app.get('/', (_req, res) => {
   res.setHeader('content-type', 'text/html; charset=utf-8');
   res.send(require('fs').readFileSync(require('path').join(__dirname, '..', 'landing.html'), 'utf8'));
 });
+// Simple health check endpoint
+app.get('/health', (_req, res) => {
+  res.status(200).send('ok');
+});
 app.use(router);
 
 const port = Number(process.env.PORT || 7019);
-app.listen(port, () => console.log(`VAVOO Clean addon on http://localhost:${port}/manifest.json`));
+app.listen(port, '0.0.0.0', () => console.log(`VAVOO Clean addon on http://localhost:${port}/manifest.json`));
