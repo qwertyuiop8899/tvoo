@@ -5,10 +5,10 @@
   "main": "dist/addon.js",
   "type": "commonjs",
   "scripts": {
-    "build": "tsc && cp public/landing.html dist/",
+  "build": "tsc && cp public/landing.html dist/",
     "start": "node dist/addon.js",
     "dev": "ts-node src/addon.ts",
-    "heroku-postbuild": "npm install && npm run build"
+  "heroku-postbuild": "npm install --include=dev && npm run build"
   },
   "dependencies": {
     "express": "^4.19.2",
