@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VAVOO Clean Addon</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 2rem; background:#0d1117; color:#c9d1d9; }
+    .card { max-width: 720px; margin: 0 auto; background:#161b22; border:1px solid #30363d; border-radius:12px; padding:24px; }
+    h1 { margin-top:0; }
+    .url { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background:#0b1220; padding:8px 12px; border-radius:8px; display:inline-block; }
+    a.btn { display:inline-block; margin-top:16px; background:#238636; color:white; text-decoration:none; padding:10px 16px; border-radius:8px; }
+    a.btn:hover { background:#2ea043; }
+    footer { margin-top:24px; font-size: 12px; opacity: .7; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>VAVOO Clean Addon</h1>
+    <p>Addon Stremio che elenca canali VAVOO per nazione e risolve HLS “pulito” usando l'IP del viewer.</p>
+    <p>Manifest URL:</p>
+    <div class="url" id="murl"></div>
+    <br/>
+    <a class="btn" id="install">Installa in Stremio</a>
+    <footer>
+      <p>Se il link non funziona, copia e incolla l'URL del Manifest in Stremio.</p>
+    </footer>
+  </div>
+  <script>
+    const m = location.origin + '/manifest.json';
+    document.getElementById('murl').textContent = m;
+    document.getElementById('install').href = 'stremio://' + m;
+  </script>
+</body>
+</html>
