@@ -2,8 +2,12 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { addonBuilder, Manifest, Stream, getRouter } from 'stremio-addon-sdk';
-import express, { Request } from 'express';
+/// <reference types="node" />
+import express, { Request, Response } from 'express';
 import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import cron from 'node-cron';
 
 // Minimal config: countries supported and mapping to Vavoo group filters
 const SUPPORTED_COUNTRIES = [
@@ -15,7 +19,7 @@ const SUPPORTED_COUNTRIES = [
   { id: 'es', name: 'Spain', group: 'Spain' },
   { id: 'al', name: 'Albania', group: 'Albania' },
   { id: 'tr', name: 'Turkey', group: 'Turkey' },
-  { id: 'nd', name: 'Nederland', group: 'Nederland' },
+  { id: 'nl', name: 'Nederland', group: 'Nederland' },
   { id: 'ar', name: 'Arabia', group: 'Arabia' },
   { id: 'bk', name: 'Balkans', group: 'Balkans' },
 ];
@@ -23,6 +27,24 @@ const SUPPORTED_COUNTRIES = [
 const DEFAULT_VAVOO_UA = 'Mozilla/5.0 (Linux; Android 13; Pixel Build/TQ3A.230805.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36';
 
 function vdbg(...args: any[]) { if (process.env.VAVOO_DEBUG !== '0') { try { console.log('[VAVOO]', ...args); } catch {} } }
+
+// Simple on-disk cache for daily catalogs (persist across restarts while container is alive)
+type CatalogCache = { updatedAt: number; countries: Record<string, any[]> };
+const CACHE_FILE = path.join(__dirname, 'vavoo_catalog_cache.json');
+let currentCache: CatalogCache = { updatedAt: 0, countries: {} };
+
+function readCacheFromDisk(): CatalogCache {
+  try {
+    const raw = fs.readFileSync(CACHE_FILE, 'utf8');
+    const j = JSON.parse(raw);
+    if (j && typeof j === 'object' && j.countries) return j as CatalogCache;
+  } catch {}
+  return { updatedAt: 0, countries: {} };
+}
+
+function writeCacheToDisk(cache: CatalogCache) {
+  try { fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf8'); } catch (e) { console.error('Cache write error:', e); }
+}
 
 function getClientIpFromReq(req: Request): string | null {
   try {
@@ -112,9 +134,8 @@ builder.defineCatalogHandler(async ({ id, type }: { id: string; type: string }) 
   if (type !== 'tv') return { metas: [] };
   const country = SUPPORTED_COUNTRIES.find(c => id === `vavoo_tv_${c.id}`);
   if (!country) return { metas: [] };
-  const sig = await getVavooSignature(null);
-  if (!sig) return { metas: [] };
-  const items = await vavooCatalog(country.group, sig);
+  // Serve only cached data; do not fetch live on demand
+  const items: any[] = currentCache.countries[country.id] || [];
   const metas = items.map((it: any) => ({
     id: `vavoo:${encodeURIComponent(it?.name || 'Unknown')}|${encodeURIComponent(it?.url || '')}`,
     type: 'tv',
@@ -154,15 +175,64 @@ builder.defineStreamHandler(async ({ id }: { id: string }, req: any) => {
 const router = getRouter(builder.getInterface());
 const app = express();
 app.set('trust proxy', true);
-app.get('/', (_req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.setHeader('content-type', 'text/html; charset=utf-8');
-  res.send(require('fs').readFileSync(require('path').join(__dirname, '..', 'landing.html'), 'utf8'));
+  try {
+    const filePath = path.join(__dirname, 'landing.html');
+    const html = fs.readFileSync(filePath, 'utf8');
+    res.send(html);
+  } catch {
+    res.send('<h1>VAVOO Clean</h1><p>Manifest: /manifest.json</p>');
+  }
 });
 // Simple health check endpoint
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).send('ok');
+});
+// Cache status endpoint (not listing full data)
+app.get('/cache/status', (_req: Request, res: Response) => {
+  res.json({ updatedAt: currentCache.updatedAt, countries: Object.keys(currentCache.countries) });
 });
 app.use(router);
 
 const port = Number(process.env.PORT || 7019);
+// Initialize cache from disk, then schedule a daily refresh at 02:00 Europe/Rome
+currentCache = readCacheFromDisk();
+let refreshing = false;
+async function refreshDailyCache() {
+  if (refreshing) return; // prevent overlap
+  refreshing = true;
+  try {
+    vdbg('Refreshing daily Vavoo catalog cache…');
+    const sig = await getVavooSignature(null);
+    if (!sig) throw new Error('No signature');
+    const countries: Record<string, any[]> = {};
+    for (const c of SUPPORTED_COUNTRIES) {
+      try {
+        const items = await vavooCatalog(c.group, sig);
+        countries[c.id] = items || [];
+        vdbg('Fetched', c.id, countries[c.id].length, 'items');
+      } catch (e) {
+        console.error('Fetch error for', c.id, e);
+        countries[c.id] = [];
+      }
+    }
+    currentCache = { updatedAt: Date.now(), countries };
+    writeCacheToDisk(currentCache);
+    vdbg('Cache refresh complete at', new Date(currentCache.updatedAt).toISOString());
+  } catch (e) {
+    console.error('Cache refresh failed:', e);
+  } finally {
+    refreshing = false;
+  }
+}
+
+// If cache empty on startup, build once (still not per-request)
+if (!currentCache.updatedAt) {
+  refreshDailyCache().catch(() => {});
+}
+
+// Schedule at 02:00 Europe/Rome daily
+cron.schedule('0 2 * * *', () => { refreshDailyCache().catch(() => {}); }, { timezone: 'Europe/Rome' });
+
 app.listen(port, '0.0.0.0', () => console.log(`VAVOO Clean addon on http://localhost:${port}/manifest.json`));
