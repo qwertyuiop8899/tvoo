@@ -5,7 +5,6 @@ yarn-error.log
 .git
 .gitignore
 Dockerfile
-src
-*.ts
 *.map
 *.log
+dist/vavoo_catalog_cache.json
