@@ -83,7 +83,7 @@ async function getVavooSignature(clientIp: string | null) {
   };
   const headers: any = { 'user-agent': 'okhttp/4.11.0', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip' };
   vdbg('PING ipLocation', clientIp);
-  const res = await fetch('https://www.vavoo.tv/api/app/ping', { method: 'POST', headers, body: JSON.stringify(body) } as any);
+  const res = await fetch('https://www.vavoo.tv/api/app/ping', { method: 'POST', headers, body: JSON.stringify(body), timeout: 8000 } as any);
   if (!res.ok) return null;
   const json: any = await res.json();
   return json?.addonSig || null;
@@ -95,7 +95,7 @@ async function vavooCatalog(group: string, signature: string) {
   let cursor: any = 0;
   do {
     const body = { language: 'de', region: 'AT', catalogId: 'iptv', id: 'iptv', adult: false, search: '', sort: 'name', filter: { group }, cursor, clientVersion: '3.1.21' };
-    const res = await fetch('https://vavoo.to/mediahubmx-catalog.json', { method: 'POST', headers, body: JSON.stringify(body) } as any);
+    const res = await fetch('https://vavoo.to/mediahubmx-catalog.json', { method: 'POST', headers, body: JSON.stringify(body), timeout: 10000 } as any);
     if (!res.ok) break;
     const j: any = await res.json();
     out.push(...(j?.items || []));
@@ -106,7 +106,7 @@ async function vavooCatalog(group: string, signature: string) {
 
 async function resolveVavooPlay(url: string, signature: string): Promise<string | null> {
   const headers: any = { 'user-agent': 'MediaHubMX/2', 'accept': 'application/json', 'content-type': 'application/json; charset=utf-8', 'accept-encoding': 'gzip', 'mediahubmx-signature': signature };
-  const res = await fetch('https://vavoo.to/mediahubmx-resolve.json', { method: 'POST', headers, body: JSON.stringify({ language: 'de', region: 'AT', url, clientVersion: '3.1.21' }) } as any);
+  const res = await fetch('https://vavoo.to/mediahubmx-resolve.json', { method: 'POST', headers, body: JSON.stringify({ language: 'de', region: 'AT', url, clientVersion: '3.1.21' }), timeout: 8000 } as any);
   if (!res.ok) return null;
   const j: any = await res.json();
   if (Array.isArray(j) && j[0]?.url) return String(j[0].url);
@@ -209,7 +209,11 @@ async function refreshDailyCache() {
     const countries: Record<string, any[]> = {};
     for (const c of SUPPORTED_COUNTRIES) {
       try {
-        const items = await vavooCatalog(c.group, sig);
+        let items = await vavooCatalog(c.group, sig);
+        // lightweight retry if first attempt returns empty (transient upstream timeouts)
+        if (!items || items.length === 0) {
+          try { items = await vavooCatalog(c.group, sig); } catch {}
+        }
         countries[c.id] = items || [];
         vdbg('Fetched', c.id, countries[c.id].length, 'items');
       } catch (e) {
