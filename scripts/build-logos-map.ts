@@ -45,7 +45,15 @@ function cleanupNameFromFilename(fname: string): string {
 }
 
 function main() {
-  ensureRepo();
+  try {
+    ensureRepo();
+  } catch (e: any) {
+    vdbg('Skipping logos build (git not available or repo fetch failed). A minimal empty logos-map will be written and updated at runtime.');
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+    fs.writeFileSync(OUT_FILE, JSON.stringify({}, null, 2));
+    vdbg('Wrote', OUT_FILE, 0, 'entries (empty)');
+    return;
+  }
   const countriesDir = path.join(REPO_DIR, 'countries');
   const out: Record<string, string> = {};
   const countries = fs.readdirSync(countriesDir).filter(f => fs.statSync(path.join(countriesDir, f)).isDirectory());
@@ -76,9 +84,13 @@ function countryAlias(dirName: string): string {
     netherlands: 'nl',
     albania: 'al',
     turkey: 'tr',
-    united_kingdom: 'uk',
+  'united-kingdom': 'uk',
     arabic: 'ar',
     balkans: 'bk',
+  russia: 'ru',
+  romania: 'ro',
+  poland: 'pl',
+  bulgaria: 'bg',
   };
   return map[dirName.toLowerCase()] || dirName.toLowerCase();
 }
