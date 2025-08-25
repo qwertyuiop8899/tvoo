@@ -1,11 +1,11 @@
 {
   "name": "stremio-vavoo-clean",
-  "version": "1.1.23",
-  "description": "Stremio addon Vavoo only: catalogs by country, resolves clean HLS without any proxy.",
+  "version": "1.0.0",
+  "description": "Stremio addon VAVOO only: catalogs by country, resolves clean HLS using viewer's IP (ipLocation).",
   "main": "dist/addon.js",
   "type": "commonjs",
   "scripts": {
-  "build": "tsc && cp public/landing.html dist/ && [ -f public/tvvoo.png ] && cp public/tvvoo.png dist/ || true && ts-node scripts/build-logos-map.ts",
+  "build": "tsc && cp public/landing.html dist/ && [ -f public/tvvoo.png ] && cp public/tvvoo.png dist/ || true && node scripts/build-logos-map.js",
     "start": "node dist/addon.js",
     "dev": "ts-node src/addon.ts",
   "heroku-postbuild": "npm install --include=dev && npm run build",
