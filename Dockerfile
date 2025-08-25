@@ -21,9 +21,9 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist ./dist
 # Ensure cache file path exists even if empty
 RUN touch dist/vavoo_catalog_cache.json
-# Some PaaS force `node /start` as the entrypoint; provide a symlink to our entry
-RUN ln -sf /app/dist/addon.js /start
+# Some PaaS force `node /start` as the entrypoint; provide a real file requiring our entry
+RUN printf "require('/app/dist/addon.js');\n" > /start \
+ && chmod 644 /start
 # Health and port
-EXPOSE 3000
 ENV PORT=3000
 CMD ["node", "dist/addon.js"]

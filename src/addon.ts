@@ -209,7 +209,13 @@ async function refreshDailyCache() {
     const countries: Record<string, any[]> = {};
     for (const c of SUPPORTED_COUNTRIES) {
       try {
-        let items = await vavooCatalog(c.group, sig);
+        // Try primary group, then a few fallbacks for regions that might have alternate group names
+        const groupCandidates = [c.group, ...(c.id === 'nl' ? ['Netherlands', 'Holland'] : [])];
+        let items: any[] = [];
+        for (const g of groupCandidates) {
+          items = await vavooCatalog(g, sig);
+          if (items && items.length) break;
+        }
         // lightweight retry if first attempt returns empty (transient upstream timeouts)
         if (!items || items.length === 0) {
           try { items = await vavooCatalog(c.group, sig); } catch {}
