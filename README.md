@@ -58,12 +58,11 @@ Stremio shows the “Configure” gear. It opens the `/configure` landing where 
 
 ## Technical notes 🛠️
 
-- Minimal IP forwarding; the signature (`addonSig`) is decoded/rewritten to prioritize the viewer IP
+- Minimal IP forwarding rewritten to prioritize the viewer IP
 - Catalog cache on disk with daily refresh at 02:00 Europe/Rome
 - Logos updated from GitHub (tv-logo) and enriched via M3U
 - Useful environment variables:
 	- `VAVOO_DEBUG=1` enable HTTP logs
-	- `VAVOO_LOG_SIG_FULL=1` log full signature (avoid in production)
 	- `VAVOO_BOOT_REFRESH=0` skip refresh at boot
 
 ## Deploy 🚀
